@@ -22,28 +22,34 @@ def get_db_connection():
 @property_bp.route("/", methods=['GET'])
 def getProperty():
     nom_id = request.args.get('nom_id')
-    conn = get_db_connection()
-    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-    cur.execute(
-        'SELECT nom_id, lat, long, display_name, date_added FROM property WHERE nom_id = %s;', [nom_id])
-    properties = cur.fetchall()
-    cur.close()
-    conn.close()
-    return jsonify(properties)
+    if (nom_id):
+        conn = get_db_connection()
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cur.execute(
+            'SELECT nom_id, lat, long, display_name, date_added FROM property WHERE nom_id = %s;', [nom_id])
+        properties = cur.fetchall()
+        cur.close()
+        conn.close()
+        return jsonify(properties)
+    else:
+        return jsonify({'error': 'nom_id parameter is required'}), 400
 
 
 # Endpoint to return all reviews for a given property
 @property_bp.route("/reviews", methods=['GET'])
 def getReviews():
     nom_id = request.args.get('nom_id')
-    conn = get_db_connection()
-    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-    cur.execute(
-        'SELECT review.property_id, review.content, review.date_added FROM review JOIN property ON review.property_id = property.id WHERE property.nom_id = %s;', [nom_id])
-    reviews = cur.fetchall()
-    cur.close()
-    conn.close()
-    return jsonify(reviews)
+    if (nom_id):
+        conn = get_db_connection()
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cur.execute(
+            'SELECT review.property_id, review.content, review.date_added FROM review JOIN property ON review.property_id = property.id WHERE property.nom_id = %s;', [nom_id])
+        reviews = cur.fetchall()
+        cur.close()
+        conn.close()
+        return jsonify(reviews)
+    else:
+        return jsonify({'error': 'nom_id parameter is required'}), 400
 
 
 # Endpoint to return all properties within specified coordinate box
@@ -51,18 +57,21 @@ def getReviews():
 def getProperties():
     minLat, maxLat, minLong, maxLong = (request.args.get(
         param) for param in ('minLat', 'maxLat', 'minLong', 'maxLong'))
-    conn = get_db_connection()
-    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-    if (minLong > maxLong):  # Handle the case where the coordinate box is on the antimeridian
-        cur.execute(
-            'SELECT nom_id, lat, long, display_name, date_added FROM property WHERE lat > %s AND lat < %s AND ((long > %s AND long < 180) OR (long > -180 AND long < %s));', [minLat, maxLat, minLong, maxLong])
+    if (minLat and maxLat and minLong and maxLong):
+        conn = get_db_connection()
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        if (minLong > maxLong):  # Handle the case where the coordinate box is on the antimeridian
+            cur.execute(
+                'SELECT nom_id, lat, long, display_name, date_added FROM property WHERE lat > %s AND lat < %s AND ((long > %s AND long < 180) OR (long > -180 AND long < %s));', [minLat, maxLat, minLong, maxLong])
+        else:
+            cur.execute(
+                'SELECT nom_id, lat, long, display_name, date_added FROM property WHERE lat > %s AND lat < %s AND long > %s AND long < %s;', [minLat, maxLat, minLong, maxLong])
+        reviews = cur.fetchall()
+        cur.close()
+        conn.close()
+        return jsonify(reviews)
     else:
-        cur.execute(
-            'SELECT nom_id, lat, long, display_name, date_added FROM property WHERE lat > %s AND lat < %s AND long > %s AND long < %s;', [minLat, maxLat, minLong, maxLong])
-    reviews = cur.fetchall()
-    cur.close()
-    conn.close()
-    return jsonify(reviews)
+        return jsonify({'error': 'missing parameter(s)'}), 400
 
 
 # Endpoint to create a new property
